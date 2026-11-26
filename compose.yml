@@ -1,0 +1,36 @@
+services:
+  familyframe-mongo:
+    image: mongo:8.0
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    volumes:
+      - /data/db
+    healthcheck:
+      test:
+        - CMD
+        - mongosh
+        - --quiet
+        - --eval
+        - |
+          try {
+            rs.status()
+          } catch (error) {
+            if (error.code !== 94) throw error
+            rs.initiate({
+              _id: "rs0",
+              members: [{ _id: 0, host: "familyframe-mongo:27017" }]
+            })
+          }
+          quit(db.hello().isWritablePrimary ? 0 : 1)
+
+  api:
+    build: ./backend
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: "mongodb://familyframe-mongo:27017/familyframe?replicaSet=rs0"
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./backend/src:/app/src
+    depends_on:
+      familyframe-mongo:
+        condition: service_healthy
