@@ -295,11 +295,13 @@ faut avoir accès au package et se connecter à GHCR.
 
 ```bash
 docker login ghcr.io -u VOTRE_IDENTIFIANT_GITHUB
-docker pull ghcr.io/simplon-dist-cda-260316/familyframe-serah-api:dev
+docker pull --platform linux/amd64 ghcr.io/simplon-dist-cda-260316/familyframe-serah-api:dev
 ```
 
 Pour la connexion manuelle, utiliser un jeton personnel classique doté de
-`read:packages`. Le workflow utilise son propre `GITHUB_TOKEN`.
+`read:packages`. Le workflow utilise son propre `GITHUB_TOKEN`. L'image de la
+CI cible `linux/amd64`. Sur un Mac Apple Silicon, préciser aussi
+`--platform linux/amd64` dans `docker run` pour utiliser cette image.
 
 ## Vérifications
 
