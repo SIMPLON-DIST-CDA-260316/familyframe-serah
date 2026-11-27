@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { io } from 'socket.io-client'
 import { mergePhotos } from './photos.js'
 import Icon from './Icon.jsx'
+import { frameHref, framePhotos } from './frame-links.js'
 
-function Frame() {
+function Frame({ frame }) {
   const [photos, setPhotos] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -12,11 +13,11 @@ function Frame() {
 
   useEffect(() => {
     let active = true
-    const socket = io()
+    const socket = io({ auth: { frameId: frame.id } })
 
     async function loadPhotos() {
       try {
-        const response = await fetch('/api/photos')
+        const response = await fetch(framePhotos(frame.id))
         const result = await response.json()
         if (!response.ok) throw new Error(result.error || 'Impossible de charger les photos.')
         if (active) {
@@ -49,7 +50,7 @@ function Frame() {
       socket.removeAllListeners()
       socket.disconnect()
     }
-  }, [attempt])
+  }, [attempt, frame.id])
 
   function retry() {
     setError('')
@@ -70,7 +71,7 @@ function Frame() {
       </div>
       {error ? <div className="frame-error"><p role="alert">{error}</p><button type="button" onClick={retry}>Réessayer</button></div> : null}
       {(isLoading && !latest && !error) ? <div className="frame-placeholder" role="status"><p>Chargement des photos…</p></div> : null}
-      {!isLoading && !latest && !error ? <div className="frame-placeholder"><Icon name="image" /><h2>En attendant la première photo</h2><p>Les nouvelles photos apparaîtront ici automatiquement.</p><a className="text-link" href="/">Partager la première photo <Icon name="arrow" /></a></div> : null}
+      {!isLoading && !latest && !error ? <div className="frame-placeholder"><Icon name="image" /><h2>En attendant la première photo</h2><p>Les nouvelles photos apparaîtront ici automatiquement.</p><a className="text-link" href={frameHref('/', frame.id)}>Partager la première photo <Icon name="arrow" /></a></div> : null}
 
       {latest ? (
         <figure className="latest" key={latest.id}>

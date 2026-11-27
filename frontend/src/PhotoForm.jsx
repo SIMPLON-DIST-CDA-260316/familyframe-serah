@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import Icon from './Icon.jsx'
+import { frameHref, framePhotos } from './frame-links.js'
 
 const maxPhotoSize = 5 * 1024 * 1024
 
-function PhotoForm() {
+function PhotoForm({ frame }) {
   const [photo, setPhoto] = useState(null)
   const [message, setMessage] = useState('')
   const [isSending, setIsSending] = useState(false)
@@ -70,7 +71,7 @@ function PhotoForm() {
     setStatus('sending')
     setMessage('Envoi en cours…')
     try {
-      const response = await fetch('/api/photos', { method: 'POST', body: formData })
+      const response = await fetch(framePhotos(frame.id), { method: 'POST', body: formData })
       const result = await response.json()
       if (!response.ok) {
         setStatus('error')
@@ -120,7 +121,7 @@ function PhotoForm() {
       </fieldset>
       {message ? <div className={`form-message ${status}`} role={status === 'error' ? 'alert' : 'status'}>
         {status === 'success' ? <Icon name="check" /> : null}
-        <p>{message}{status === 'success' ? <> <a href="/cadre">Voir le cadre <span aria-hidden="true">→</span></a></> : null}</p>
+        <p>{message}{status === 'success' ? <> <a href={frameHref('/cadre', frame.id)}>Voir le cadre <span aria-hidden="true">→</span></a></> : null}</p>
       </div> : null}
     </form>
   )

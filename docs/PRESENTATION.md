@@ -10,12 +10,13 @@ l'environnement Docker, puis j'ai automatisé les tests et la publication de l'A
 
 1. Suivre le [README](../README.md) pour lancer l'API et MongoDB avec
    `docker compose up --build`, puis le frontend avec `pnpm dev`.
-2. Ouvrir `/` et `/cadre` dans deux onglets. Choisir une photo de démonstration
-   et montrer son aperçu, puis l'envoyer pour la voir apparaître dans le cadre.
-   Vérifier la configuration Cloudinary avant cette partie.
+2. Créer deux cadres (Dupont et Martin). Montrer le code et le QR code
+   d'invitation du premier. L'ouvrir dans deux onglets, l'un sur « Partager »
+   et l'autre sur « Le cadre ». Envoyer une image et vérifier que le cadre
+   Martin ne la reçoit pas. Vérifier la configuration Cloudinary avant la démo.
 3. Montrer le schéma d'architecture. Expliquer que Cloudinary stocke l'image
    et que MongoDB garde ses informations. Socket.IO signale la nouvelle photo
-   au cadre pour qu'il se mette à jour.
+   uniquement à la room du cadre autorisé.
 4. Montrer le workflow GitHub Actions et
    [la PR de vérification #2](https://github.com/SIMPLON-DIST-CDA-260316/familyframe-serah/pull/2).
    Dire que les tests passent avant la publication et que le contrôle `tests`
@@ -38,3 +39,9 @@ l'environnement Docker, puis j'ai automatisé les tests et la publication de l'A
   `mergePhotos` et vérifie que la plus récente arrive en premier.
 - **Que reçoivent les camarades ?** Ils peuvent consulter le dépôt et, avec un
   accès au package privé Simplon, télécharger la version `:dev` de l'image.
+
+- **Comment les photos restent-elles séparées ?** Une invitation donne un cookie
+  HttpOnly pour un cadre. L'API vérifie ce cookie avant chaque accès. Socket.IO
+  vérifie aussi le cadre avant de connecter le navigateur à sa room.
+- **Que deviennent les anciennes photos ?** Une commande affiche d'abord le
+  nombre de photos sans cadre, puis permet de les rattacher au cadre choisi.
