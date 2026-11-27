@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Icon from './Icon.jsx'
+
+const maxPhotoSize = 5 * 1024 * 1024
 
 function PhotoForm() {
   const [photo, setPhoto] = useState(null)
@@ -7,6 +9,9 @@ function PhotoForm() {
   const [isSending, setIsSending] = useState(false)
   const [preview, setPreview] = useState('')
   const [status, setStatus] = useState('')
+  const fileInput = useRef(null)
+  const cameraInput = useRef(null)
+  const pickerButton = useRef(null)
 
   useEffect(() => () => {
     if (preview) URL.revokeObjectURL(preview)
@@ -20,10 +25,24 @@ function PhotoForm() {
   function selectPhoto(event) {
     const selected = event.target.files[0]
     if (!selected) return
+    event.target.value = ''
+    if (selected.size === 0 || selected.size > maxPhotoSize) {
+      setPhoto(null)
+      setPreview('')
+      setStatus('error')
+      setMessage('Choisissez une photo non vide de 5 Mo maximum.')
+      return
+    }
     setPhoto(selected)
-    setPreview(selected.size <= 5 * 1024 * 1024 && selected.type.startsWith('image/')
-      ? URL.createObjectURL(selected) : '')
+    setPreview(selected.type.startsWith('image/') ? URL.createObjectURL(selected) : '')
     clearMessage()
+  }
+
+  function removePhoto() {
+    setPhoto(null)
+    setPreview('')
+    clearMessage()
+    pickerButton.current?.focus()
   }
 
   async function handleSubmit(event) {
@@ -38,9 +57,10 @@ function PhotoForm() {
       setMessage('Le pseudo doit contenir entre 1 et 50 caractères.')
       return
     }
-    if (!photo || photo.size === 0 || photo.size > 5 * 1024 * 1024) {
+    if (!photo) {
       setStatus('error')
-      setMessage('Choisissez une photo non vide de 5 Mo maximum.')
+      setMessage('Choisissez une photo avant de l’envoyer.')
+      pickerButton.current?.focus()
       return
     }
 
@@ -58,7 +78,7 @@ function PhotoForm() {
         return
       }
       setStatus('success')
-      setMessage('Sourire envoyé ! Votre photo est maintenant sur le cadre.')
+      setMessage('Photo envoyée. Elle est disponible sur le cadre.')
       form.reset()
       setPhoto(null)
       setPreview('')
@@ -71,39 +91,37 @@ function PhotoForm() {
   }
 
   return (
-    <form className="photo-form" onSubmit={handleSubmit} onChange={clearMessage} aria-labelledby="form-title" aria-busy={isSending}>
-      <h2 id="form-title">Quoi de neuf chez vous ?</h2>
-      <p className="form-intro">Partagez un instant avec vos proches. <br />Il trouvera sa place sur leur cadre.</p>
+    <form className="photo-form" onSubmit={handleSubmit} aria-labelledby="form-title" aria-busy={isSending}>
+      <h1 id="form-title">Partager une photo</h1>
+      <p className="form-intro">Elle apparaîtra en direct sur le cadre de vos proches.</p>
       <fieldset disabled={isSending}>
         <legend className="visually-hidden">Votre souvenir à partager</legend>
         <div className="form-field">
-          <label htmlFor="pseudo">Votre pseudo</label>
-          <input id="pseudo" name="pseudo" type="text" placeholder="Comment vous appelle-t-on ?" maxLength={50} required autoComplete="nickname" />
+          <label htmlFor="pseudo">Votre prénom ou pseudo</label>
+          <input id="pseudo" name="pseudo" type="text" placeholder="Ex. Camille" maxLength={50} required autoComplete="nickname" onChange={clearMessage} />
         </div>
         <div className="form-field">
-          <label htmlFor="photo">Votre photo</label>
-          <div className={`photo-picker ${photo ? 'has-photo' : ''}`}>
-            <input id="photo" type="file" accept="image/*" onChange={selectPhoto} required={!photo} aria-label={photo ? 'Changer de photo' : 'Choisir une photo'} aria-describedby="photo-help selected-photo" />
-            {preview ? <img className="photo-preview" src={preview} alt="Aperçu de la photo choisie" onError={() => setPreview('')} /> : <Icon name="image" />}
+          <p className="field-label">Votre photo</p>
+          <input hidden ref={fileInput} type="file" accept="image/*" onChange={selectPhoto} />
+          <input hidden ref={cameraInput} type="file" accept="image/*" capture="environment" onChange={selectPhoto} />
+          <button ref={pickerButton} type="button" className={`photo-picker ${photo ? 'has-photo' : ''}`} onClick={() => fileInput.current?.click()} aria-describedby="photo-help">
+            {preview ? <img className="photo-preview" src={preview} alt="" onError={() => setPreview('')} /> : <span className="picker-icon"><Icon name="image" /></span>}
             <span className="picker-title">{photo ? 'Changer de photo' : 'Choisir une photo'}</span>
-            <span className="picker-hint">{photo ? 'Un autre instant à partager ?' : 'Depuis votre téléphone ou votre ordinateur'}</span>
+          </button>
+          <div className="photo-options">
+            <p id="photo-help" className="field-help">Image de 5 Mo maximum</p>
+            <button type="button" className="camera-picker" onClick={() => cameraInput.current?.click()}><Icon name="camera" /> Prendre une photo</button>
           </div>
-          <div className="camera-picker">
-            <input id="camera" type="file" accept="image/*" capture="environment" onChange={selectPhoto} aria-label="Prendre une photo" aria-describedby="camera-help" />
-            <span><Icon name="camera" /> Ou prendre une photo</span>
-          </div>
-          <p id="photo-help" className="field-help">5 Mo maximum · Les images sont adaptées pour le cadre.</p>
-          <p id="camera-help" className="visually-hidden">L’ouverture de l’appareil photo dépend de votre navigateur mobile.</p>
-          {photo ? <p id="selected-photo" className="selected-file"><Icon name="check" /><span>{photo.name}</span></p> : <span id="selected-photo" />}
+          {photo ? <div className="selected-file"><Icon name="check" /><span>{photo.name}</span><button type="button" onClick={removePhoto}>Retirer</button></div> : null}
         </div>
         <button className="send-button" type="submit">
-          {isSending ? <><span className="spinner" /> Envoi de votre sourire…</> : <>Envoyer un sourire <Icon name="arrow" /></>}
+          {isSending ? <><span className="spinner" /> Envoi en cours…</> : <>Envoyer la photo <Icon name="arrow" /></>}
         </button>
       </fieldset>
       {message ? <div className={`form-message ${status}`} role={status === 'error' ? 'alert' : 'status'}>
         {status === 'success' ? <Icon name="check" /> : null}
         <p>{message}{status === 'success' ? <> <a href="/cadre">Voir le cadre <span aria-hidden="true">→</span></a></> : null}</p>
-      </div> : <p className="form-note">Votre photo apparaîtra directement sur le cadre.</p>}
+      </div> : null}
     </form>
   )
 }

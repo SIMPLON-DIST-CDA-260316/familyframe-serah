@@ -14,26 +14,24 @@ function App() {
           <span>FamilyFrame<span className="brand-dot">.</span></span>
         </a>
         <nav aria-label="Navigation principale">
-          <a href="/" aria-current={!isFrame ? 'page' : undefined}>Partager une photo</a>
-          <a href="/cadre" aria-current={isFrame ? 'page' : undefined}>Le cadre familial</a>
+          <a href="/" aria-current={!isFrame ? 'page' : undefined}><Icon name="camera" /> Partager</a>
+          <a href="/cadre" aria-current={isFrame ? 'page' : undefined}><Icon name="frame" /> Le cadre</a>
         </nav>
       </header>
       <main id="content" className={isFrame ? 'frame-layout' : 'share-layout'}>
         {isFrame ? <Frame /> : <>
-          <section className="share-intro" aria-labelledby="intro-title">
-            <h1 id="intro-title">Un petit moment.<br /><em>Un grand sourire.</em></h1>
-            <p>Une photo de votre quotidien, un peu de vous<br className="desktop-break" /> chez ceux que vous aimez.</p>
+          <PhotoForm />
+          <aside className="share-intro" aria-label="Une photo, un souvenir">
             <figure className="memory-print">
               <img src="/images/family-moment.webp" alt="" width="1200" height="900" />
-              <figcaption>Les souvenirs font le lien.</figcaption>
+              <figcaption><Icon name="frame" /><span>Les petits moments<br /><em>font les grands souvenirs.</em></span></figcaption>
             </figure>
-          </section>
-          <PhotoForm />
+          </aside>
         </>}
       </main>
       <footer className="site-footer">
         <p>Un peu plus proches, même de loin.</p>
-        <span>FamilyFrame · Les instants qui comptent</span>
+        <a href={isFrame ? '/' : '/cadre'}>{isFrame ? 'Partager une photo' : 'Ouvrir le cadre'} <Icon name="arrow" /></a>
       </footer>
     </div>
   )

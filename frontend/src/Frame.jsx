@@ -7,7 +7,8 @@ function Frame() {
   const [photos, setPhotos] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
-  const [isConnected, setIsConnected] = useState(false)
+  const [connection, setConnection] = useState('connecting')
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     let active = true
@@ -32,11 +33,11 @@ function Frame() {
     }
 
     socket.on('connect', () => {
-      setIsConnected(true)
+      setConnection('live')
       loadPhotos()
     })
-    socket.on('disconnect', () => setIsConnected(false))
-    socket.on('connect_error', () => setIsConnected(false))
+    socket.on('disconnect', () => setConnection('offline'))
+    socket.on('connect_error', () => setConnection('offline'))
     socket.on('photo:new', photo => {
       setPhotos(current => mergePhotos(current, [photo]))
       setError('')
@@ -48,20 +49,28 @@ function Frame() {
       socket.removeAllListeners()
       socket.disconnect()
     }
-  }, [])
+  }, [attempt])
+
+  function retry() {
+    setError('')
+    setIsLoading(true)
+    setConnection('connecting')
+    setAttempt(current => current + 1)
+  }
 
   const latest = photos[0]
   const previous = photos.slice(1)
+  const liveLabel = { live: 'En direct', connecting: 'Connexion au cadre…', offline: 'Direct interrompu' }[connection]
 
   return (
     <section className="frame" aria-labelledby="frame-title">
       <div className="frame-heading">
-        <h1 id="frame-title">Les instants qui nous rapprochent.</h1>
-        <p className={`live-status ${isConnected ? 'is-connected' : ''}`} role="status"><span />{isConnected ? 'Connecté au direct' : 'Connexion au direct…'}</p>
+        <h1 id="frame-title">Le cadre familial</h1>
+        <p className={`live-status ${connection === 'live' ? 'is-connected' : ''}`} role="status"><span aria-hidden="true" />{liveLabel}</p>
       </div>
-      {error ? <p className="frame-error" role="alert">{error}</p> : null}
-      {isLoading && !latest ? <div className="frame-placeholder"><span className="spinner" /><p>Vos souvenirs arrivent…</p></div> : null}
-      {!isLoading && !latest && !error ? <div className="frame-placeholder"><Icon name="image" /><h2>Le début de vos souvenirs.</h2><p>Une première photo, et vous voilà un peu plus proches.</p><a className="text-link" href="/">Partager le premier souvenir <Icon name="arrow" /></a></div> : null}
+      {error ? <div className="frame-error"><p role="alert">{error}</p><button type="button" onClick={retry}>Réessayer</button></div> : null}
+      {(isLoading && !latest && !error) ? <div className="frame-placeholder" role="status"><p>Chargement des photos…</p></div> : null}
+      {!isLoading && !latest && !error ? <div className="frame-placeholder"><Icon name="image" /><h2>En attendant la première photo</h2><p>Les nouvelles photos apparaîtront ici automatiquement.</p><a className="text-link" href="/">Partager la première photo <Icon name="arrow" /></a></div> : null}
 
       {latest ? (
         <figure className="latest" key={latest.id}>
