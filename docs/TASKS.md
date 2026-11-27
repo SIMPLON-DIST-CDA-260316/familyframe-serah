@@ -58,4 +58,5 @@ natives de capture dépendent du navigateur mobile.
 - [x] Vérifier côté serveur les sessions HttpOnly pour l'accès aux photos.
 - [x] Isoler les événements Socket.IO dans la room du cadre autorisé.
 - [x] Tester le rattachement des anciennes photos sur une base de test.
+- [x] Vérifier l'envoi et la lecture protégée d'une image synthétique avec Cloudinary.
 - [ ] Rattacher les photos existantes après avoir choisi leur cadre de destination.

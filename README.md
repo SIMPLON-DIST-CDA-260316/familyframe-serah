@@ -62,6 +62,8 @@ démarrage.
 
 Préparer le même fichier `backend/.env` que pour Compose. Si l'API de Compose
 tourne, l'arrêter d'abord pour libérer le port 3000.
+Avec `docker run --env-file`, écrire les valeurs Cloudinary sans guillemets.
+Docker CLI conserve les guillemets présents dans ce fichier.
 
 ### Construire l'image et démarrer MongoDB
 
