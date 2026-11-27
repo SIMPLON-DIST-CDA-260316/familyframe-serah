@@ -55,6 +55,6 @@ Après chaque tâche :
 ## Interdictions
 
 - Pas de Docker le premier jour.
-- Pas d'authentification.
+- Pour la version 2, limiter l'authentification aux sessions de cadre par invitation.
 - Pas de fonctionnalités bonus.
 - Pas de sur-ingénierie.

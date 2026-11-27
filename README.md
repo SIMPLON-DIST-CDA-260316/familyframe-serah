@@ -15,7 +15,10 @@ configuration s'il n'existe pas encore :
 cp -n backend/.env.example backend/.env
 ```
 
-Garder `PORT=3000` dans `backend/.env`. Pour envoyer des photos, renseigner
+Garder `PORT=3000` dans `backend/.env` et renseigner `FRAME_SESSION_SECRET`
+avec une valeur aléatoire de 32 caractères ou plus, générée par exemple avec
+`openssl rand -hex 32`. Utiliser `FRAME_COOKIE_SECURE=true` en HTTPS.
+Pour envoyer des photos, renseigner
 `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` et `CLOUDINARY_API_SECRET`.
 Compose fournit l'adresse de MongoDB, donc aucun compte Atlas n'est nécessaire
 avec cette méthode. Garder `backend/.env` sur sa machine.
@@ -33,12 +36,10 @@ utilisent le réseau de Compose et MongoDB stocke ses données dans un volume
 anonyme monté sur `/data/db`.
 
 Dans Bruno, envoyer `GET http://localhost:3000/health` pour vérifier que l'API
-répond, puis `GET http://localhost:3000/photos` pour vérifier la lecture dans
-MongoDB. Sur une base vide, `/photos` renvoie `[]`. Pour utiliser l'interface,
-lancer Vite comme indiqué dans la section [Frontend](#frontend).
+répond. Pour tester la base et le direct, lancer Vite comme décrit dans la
+section [Frontend](#frontend), puis créer ou rejoindre un cadre dans le navigateur.
 
-Sur une base neuve, on peut appliquer le schéma Prisma pour créer la collection
-`photos` et son index de date. Depuis un autre terminal à la racine :
+Appliquer le schéma Prisma pour créer les collections et leurs index. Depuis un autre terminal à la racine :
 
 ```bash
 docker compose exec api pnpm db:push
@@ -61,6 +62,8 @@ démarrage.
 
 Préparer le même fichier `backend/.env` que pour Compose. Si l'API de Compose
 tourne, l'arrêter d'abord pour libérer le port 3000.
+Avec `docker run --env-file`, écrire les valeurs Cloudinary sans guillemets.
+Docker CLI conserve les guillemets présents dans ce fichier.
 
 ### Construire l'image et démarrer MongoDB
 
@@ -109,7 +112,7 @@ docker run \
 Garder ce terminal ouvert. Dans un deuxième terminal, `docker ps` affiche les
 conteneurs en cours d'exécution. Sur une base neuve, on peut créer la collection
 et son index avec `docker exec familyframe-api pnpm db:push`.
-Les tests `/health`, `/photos` et de live reload décrits dans la section Compose
+Les vérifications de l’API et du live reload décrits dans la section Compose
 fonctionnent de la même façon.
 
 Pour arrêter les conteneurs, utiliser `docker stop familyframe-api familyframe-mongo`.
@@ -149,6 +152,8 @@ Renseigner les valeurs dans `backend/.env`, uniquement sur sa machine :
 | `CLOUDINARY_API_KEY` | Clé API Cloudinary. |
 | `CLOUDINARY_API_SECRET` | Secret API Cloudinary. |
 | `PORT` | Port du backend, `3000` par défaut. |
+| `FRAME_SESSION_SECRET` | Valeur aléatoire d'au moins 32 caractères, côté serveur uniquement. |
+| `FRAME_COOKIE_SECURE` | `true` en HTTPS, `false` pour le développement local en HTTP. |
 
 Les identifiants dans l'URI MongoDB sont ceux d'un utilisateur de base de données.
 Les caractères spéciaux du mot de passe doivent être encodés pour une URL.
@@ -202,28 +207,42 @@ Pour vérifier que l'API répond, ouvrir <http://localhost:3000/health> ou exéc
 curl http://localhost:3000/health
 ```
 
-La réponse contient `"status": "ok"` si le serveur tourne. Pour vérifier la connexion à MongoDB, utiliser `/photos`.
+La réponse contient `"status": "ok"` si le serveur tourne. Pour vérifier la connexion à MongoDB, créer un cadre depuis le frontend.
 
 ## Utilisation
 
-- `http://localhost:5173/` : pseudo, sélection ou prise de photo, envoi.
-- `http://localhost:5173/cadre` : dernière photo et anciennes photos consultables.
-- Limite : 5 Mo par fichier et 50 caractères pour le pseudo.
-- Le serveur refuse les images invalides ou non décodables ; les formats disponibles dépendent de Sharp.
+- Ouvrir le frontend, puis créer un cadre ou rejoindre un cadre avec son code.
+- À la création, conserver le code ou le lien d'invitation. Le QR code ouvre le
+  formulaire d'adhésion avec le code déjà rempli. Sur un autre appareil, le lien
+  doit utiliser une adresse accessible de cet appareil, par exemple l'adresse
+  réseau affichée par Vite après `pnpm dev --host 0.0.0.0`.
+- Sélectionner un cadre. Depuis « Partager », envoyer une image de 5 Mo maximum
+  avec un pseudo. Depuis « Le cadre », voir la dernière photo et les précédentes.
+- Le serveur valide l'invitation et enregistre l'accès pour sept jours dans un
+  cookie HttpOnly dédié au cadre. Le code est conservé sous forme de hachage
+  côté serveur. Toute personne à qui on transmet le code peut rejoindre le cadre.
 
-La sélection d'image et la prise de photo ont deux champs distincts : l'attribut `capture`
-peut ouvrir directement l'appareil photo sur certains téléphones. Le fichier retenu est indiqué à l'écran.
+## Rattacher les photos de la version 1
 
-Pour essayer depuis un téléphone connecté au même réseau : lancer le frontend avec
-`pnpm dev --host 0.0.0.0`, puis utiliser l'adresse réseau affichée par Vite sur le téléphone.
-Le proxy Vite transmet les requêtes API et Socket.IO au backend ; le téléphone n'utilise pas son propre localhost.
-La prise de photo doit encore être vérifiée sur un appareil physique.
+Créer un cadre qui doit recevoir les anciennes photos et récupérer son identifiant
+dans l'adresse (`?frame=IDENTIFIANT`). Après `db:push`, lancer un aperçu avant de
+modifier les données :
+
+```bash
+docker compose exec api pnpm db:migrate-photos IDENTIFIANT
+docker compose exec api pnpm db:migrate-photos IDENTIFIANT --apply
+```
+
+Seules les photos sans cadre sont rattachées. Les photos déjà associées et les
+fichiers Cloudinary restent en place. Les nouvelles images sont privées sur
+Cloudinary. Une ancienne URL publique Cloudinary déjà partagée reste accessible
+jusqu'à ce que son asset soit protégé dans Cloudinary.
 
 ## Schéma d'architecture
 
 En développement avec Compose, Vite tourne sur l'ordinateur et transmet les
 requêtes à l'API par le port 3000. MongoDB est accessible à l'API sur le réseau
-de Compose. Cloudinary stocke les images et MongoDB conserve leurs métadonnées.
+de Compose. Cloudinary stocke les images et MongoDB conserve leurs métadonnées et les cadres.
 
 ```mermaid
 flowchart LR
@@ -248,21 +267,22 @@ flowchart LR
 
     Browser <-->|"HTTP et Socket.IO"| Vite
     API -->|"Envoi des images"| Cloud
-    Browser -->|"Chargement des images en HTTPS"| Cloud
+    API -->|"Lecture des images après vérification de l’accès"| Cloud
 ```
 
 ## Le parcours d'une photo
 
-1. React rassemble le pseudo et le fichier dans `FormData`, puis appelle `POST /api/photos`.
-2. Vite transmet la demande à la route Express `POST /photos`.
+1. React rassemble le pseudo et le fichier dans `FormData`, puis appelle la route
+   d'envoi du cadre sélectionné.
+2. Vite transmet la demande à Express. Le serveur vérifie le cookie du cadre.
 3. Multer reçoit le fichier en mémoire et limite sa taille.
 4. Sharp décode le contenu, applique l'orientation, limite la taille à 1920 × 1920 pixels
    et réencode en JPEG sans conserver les métadonnées. L'entrée est limitée à 25 millions de pixels.
-5. Cloudinary stocke ce JPEG et renvoie une URL et un identifiant.
-6. Prisma enregistre ces informations, le pseudo et la date dans MongoDB.
-7. Socket.IO diffuse `photo:new` après l'enregistrement ; le cadre l'affiche immédiatement.
+5. Cloudinary stocke ce JPEG en mode authentifié et renvoie un identifiant.
+6. Prisma enregistre ces informations avec le pseudo, la date et l'identifiant du cadre.
+7. Socket.IO diffuse `photo:new` uniquement dans la room du cadre concerné.
 
-Au démarrage et à la reconnexion, le cadre récupère `GET /photos`.
+Au démarrage et à la reconnexion, le cadre charge ses photos. Le navigateur reçoit une URL de l'API pour lire l'image après contrôle.
 Il fusionne les résultats et les événements, sans doublons, en gardant la photo la plus récente en premier.
 Si l'enregistrement en base échoue après l'upload, le serveur tente de supprimer l'image Cloudinary.
 
@@ -271,8 +291,12 @@ Si l'enregistrement en base échoue après l'upload, le serveur tente de supprim
 | Route | Rôle |
 | --- | --- |
 | `GET /health` | Vérifier que le serveur répond. |
-| `GET /photos` | Lire les photos de la plus récente à la plus ancienne. |
-| `POST /photos` | Envoyer un formulaire multipart avec `pseudo` et un fichier `photo`. |
+| `GET /frames` | Lister les cadres auxquels le navigateur a accès. |
+| `POST /frames` | Créer un cadre avec un nom et recevoir son invitation. |
+| `POST /frames/join` | Vérifier le code et ouvrir une session pour le cadre. |
+| `GET /frames/:frameId/photos` | Lire les photos du cadre, de la plus récente à la plus ancienne. |
+| `POST /frames/:frameId/photos` | Envoyer une photo multipart avec `pseudo` et un fichier `photo`. |
+| `GET /frames/:frameId/photos/:photoId/image` | Afficher l'image si le navigateur a accès à son cadre. |
 
 Une création réussie répond en HTTP 201. Un formulaire invalide répond 400,
 un fichier trop volumineux 413 et une image non acceptée 415.
@@ -329,11 +353,11 @@ deux images envoyées depuis le formulaire, affichage en direct sur le cadre, hi
 des mêmes documents après redémarrage du backend. Ces deux images de démonstration sont conservées.
 Le résultat détaillé figure dans [le suivi des tâches](docs/TASKS.md).
 
-Pour reproduire la vérification avec les vrais services après configuration de `.env` :
+Pour rejouer la démonstration après configuration de `.env` :
 
-1. Ouvrir le formulaire et le cadre dans deux onglets.
+1. Créer deux cadres. Ouvrir le formulaire et un cadre dans deux onglets.
 2. Envoyer une photo : vérifier son apparition sans actualisation.
-3. Vérifier l'image sur Cloudinary et le document dans MongoDB Atlas.
+3. Vérifier que la photo ne s'affiche pas sur le deuxième cadre.
 4. Envoyer une seconde photo et consulter la première dans l'historique.
 5. Redémarrer le backend et recharger le cadre : vérifier que les photos persistent.
 

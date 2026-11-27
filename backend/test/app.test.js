@@ -3,6 +3,7 @@ import { once } from 'node:events'
 import { Writable } from 'node:stream'
 import test from 'node:test'
 import sharp from 'sharp'
+import { io as connect } from 'socket.io-client'
 import { io, server } from '../src/app.js'
 import { cloudinary } from '../src/cloudinary.js'
 import { prisma } from '../src/db.js'
@@ -14,6 +15,26 @@ test('API photo : traitement réel, services externes remplacés pour les tests'
   let events = []
   let failUpload = false
   let failDatabase = false
+  const frames = []
+  const photoId = '000000000000000000000111'
+  process.env.FRAME_SESSION_SECRET = 'test-only-secret-at-least-32-characters'
+  process.env.DATABASE_URL = 'mongodb://127.0.0.1:27017/familyframe_test'
+
+  const originalFrame = { create: prisma.frame.create, findUnique: prisma.frame.findUnique, findMany: prisma.frame.findMany }
+  const originalFindFirst = prisma.photo.findFirst
+  t.after(() => {
+    Object.assign(prisma.frame, originalFrame)
+    prisma.photo.findFirst = originalFindFirst
+  })
+  prisma.frame.create = async ({ data }) => {
+    const frame = { ...data, id: (frames.length + 1).toString(16).padStart(24, '0') }
+    frames.push(frame)
+    return { id: frame.id, name: frame.name }
+  }
+  prisma.frame.findUnique = async ({ where }) =>
+    frames.find(frame => where.id ? frame.id === where.id : frame.inviteHash === where.inviteHash) ?? null
+  prisma.frame.findMany = async ({ where }) =>
+    frames.filter(frame => where.id.in.includes(frame.id)).map(({ id, name }) => ({ id, name }))
 
   t.beforeEach(() => {
     records = []
@@ -47,15 +68,21 @@ test('API photo : traitement réel, services externes remplacés pour les tests'
   })
   prisma.photo.create = async ({ data }) => {
     if (failDatabase) throw new Error('PRIVATE_DATABASE_DETAIL')
-    const photo = { id: 'test-photo', ...data, createdAt: new Date() }
+    const photo = { id: photoId, ...data, createdAt: new Date() }
     records.push(photo)
     return photo
   }
-  prisma.photo.findMany = async ({ orderBy }) => {
+  prisma.photo.findMany = async ({ where, orderBy }) => {
     assert.deepEqual(orderBy, [{ createdAt: 'desc' }, { id: 'desc' }])
-    return records
+    return records.filter(photo => photo.frameId === where.frameId)
   }
-  t.mock.method(io, 'emit', (name, photo) => { events.push({ name, photo }) })
+  prisma.photo.findFirst = async ({ where }) =>
+    records.find(photo => photo.id === where.id && photo.frameId === where.frameId) ?? null
+  const toRoom = io.to.bind(io)
+  t.mock.method(io, 'to', room => {
+    const broadcast = toRoom(room)
+    return { emit(name, photo) { events.push({ room, name, photo }); return broadcast.emit(name, photo) } }
+  })
 
   server.listen(0, '127.0.0.1')
   await once(server, 'listening')
@@ -65,6 +92,22 @@ test('API photo : traitement réel, services externes remplacés pour les tests'
     await prisma.$disconnect()
   })
 
+  async function createFrame(name) {
+    const response = await fetch(`${base}/frames`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }),
+    })
+    assert.equal(response.status, 201)
+    const cookie = response.headers.get('set-cookie')
+    assert.match(cookie, /HttpOnly/)
+    assert.match(cookie, /SameSite=Strict/)
+    return { ...await response.json(), cookie: cookie.split(';')[0] }
+  }
+
+  const a = await createFrame('Dupont')
+  const b = await createFrame('Martin')
+  const aPhotos = `${base}/frames/${a.frame.id}/photos`
+  const bPhotos = `${base}/frames/${b.frame.id}/photos`
+
   const png = await sharp({ create: { width: 2048, height: 8, channels: 3, background: 'red' } })
     .withMetadata().png().toBuffer()
 
@@ -72,7 +115,7 @@ test('API photo : traitement réel, services externes remplacés pour les tests'
     const form = new FormData()
     form.append('pseudo', pseudo)
     if (buffer) form.append(field, new Blob([buffer], { type }), 'photo.png')
-    return fetch(`${base}/photos`, { method: 'POST', body: form })
+    return fetch(aPhotos, { method: 'POST', headers: { Cookie: a.cookie }, body: form })
   }
 
   await t.test('le serveur répond et une route inconnue renvoie 404', async () => {
@@ -85,8 +128,10 @@ test('API photo : traitement réel, services externes remplacés pour les tests'
     assert.equal(response.status, 201)
     const photo = await response.json()
     assert.equal(photo.pseudo, 'Alice')
-    assert.equal(photo.url, 'https://example.test/photo.jpg')
-    assert.equal(photo.cloudinaryId, 'familyframe/test')
+    assert.equal(photo.url, `/api/frames/${a.frame.id}/photos/${photoId}/image`)
+    assert.equal('cloudinaryId' in photo, false)
+    assert.equal(records[0].frameId, a.frame.id)
+    assert.equal(records[0].restricted, true)
     assert.ok(photo.createdAt)
     const image = await sharp(uploaded[0]).metadata()
     assert.equal(image.format, 'jpeg')
@@ -95,7 +140,55 @@ test('API photo : traitement réel, services externes remplacés pour les tests'
     assert.equal(events.length, 1)
     assert.equal(events[0].name, 'photo:new')
     assert.equal(events[0].photo.id, photo.id)
-    assert.equal((await (await fetch(`${base}/photos`)).json())[0].id, photo.id)
+    assert.equal((await (await fetch(aPhotos, { headers: { Cookie: a.cookie } })).json())[0].id, photo.id)
+  })
+
+  await t.test('les invitations sont vérifiées et les cadres restent isolés', async () => {
+    assert.match(a.qr, /^data:image\/png;base64,/)
+    assert.equal(new URL(a.invitationUrl).hash, `#invitation=${a.code}`)
+    assert.notEqual(frames[0].inviteHash, a.code)
+    const join = code => fetch(`${base}/frames/join`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }),
+    })
+    assert.equal((await join('x'.repeat(24))).status, 404)
+    const joined = await join(a.code)
+    assert.equal(joined.status, 200)
+    assert.equal((await joined.json()).id, a.frame.id)
+    const joinedCookie = joined.headers.get('set-cookie').split(';')[0]
+    assert.equal((await fetch(aPhotos)).status, 403)
+    assert.equal((await fetch(aPhotos, { method: 'POST' })).status, 403)
+    assert.equal((await fetch(bPhotos, { headers: { Cookie: joinedCookie } })).status, 403)
+    const sent = await send()
+    assert.equal(sent.status, 201)
+    assert.deepEqual(await (await fetch(bPhotos, { headers: { Cookie: b.cookie } })).json(), [])
+    assert.equal((await fetch(`${bPhotos}/${photoId}/image`, { headers: { Cookie: b.cookie } })).status, 404)
+    assert.equal((await fetch(`${aPhotos}/${photoId}/image`, { headers: { Cookie: b.cookie } })).status, 403)
+  })
+
+  await t.test('Socket.IO refuse un cadre étranger et diffuse seulement à la bonne room', async () => {
+    const socket = (id, cookie) => connect(base, {
+      auth: { frameId: id }, extraHeaders: { Cookie: cookie }, transports: ['websocket'], reconnection: false,
+    })
+    const waitFor = (client, event) => new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error(`Événement absent : ${event}`)), 2000)
+      client.once(event, result => { clearTimeout(timeout); resolve(result) })
+    })
+    const clients = [socket(a.frame.id, a.cookie), socket(b.frame.id, b.cookie), socket(b.frame.id, a.cookie)]
+    const [alice, bob, refused] = clients
+    try {
+      const [, , rejection] = await Promise.all([
+        waitFor(alice, 'connect'), waitFor(bob, 'connect'), waitFor(refused, 'connect_error'),
+      ])
+      assert.match(rejection.message, /refusé/)
+      bob.on('photo:new', () => { assert.fail('Un autre cadre a reçu la photo.') })
+      const incoming = waitFor(alice, 'photo:new')
+      assert.equal((await send()).status, 201)
+      assert.equal((await incoming).id, photoId)
+      assert.equal(events[0].room, `frame:${a.frame.id}`)
+      await new Promise(resolve => setTimeout(resolve, 50))
+    } finally {
+      clients.forEach(client => client.close())
+    }
   })
 
   await t.test('pseudo vide ou trop long et photo absente sont refusés', async () => {
@@ -120,9 +213,9 @@ test('API photo : traitement réel, services externes remplacés pour les tests'
   })
 
   await t.test('un formulaire multipart mal formé est refusé sans erreur serveur', async () => {
-    const response = await fetch(`${base}/photos`, {
+    const response = await fetch(aPhotos, {
       method: 'POST',
-      headers: { 'Content-Type': 'multipart/form-data' },
+      headers: { 'Content-Type': 'multipart/form-data', Cookie: a.cookie },
       body: 'broken multipart',
     })
     assert.equal(response.status, 400)
@@ -135,7 +228,7 @@ test('API photo : traitement réel, services externes remplacés pour les tests'
     cloudinary.config({ api_secret: 'test' })
     delete process.env.DATABASE_URL
     assert.equal((await send()).status, 503)
-    assert.equal((await fetch(`${base}/photos`)).status, 503)
+    assert.equal((await fetch(aPhotos, { headers: { Cookie: a.cookie } })).status, 503)
     assert.equal(uploaded.length, 0)
   })
 

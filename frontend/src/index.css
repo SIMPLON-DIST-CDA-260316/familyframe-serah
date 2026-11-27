@@ -6,14 +6,6 @@
 }
 
 @font-face {
-  font-family: 'Instrument Serif';
-  src: url('/fonts/instrument-serif-italic.ttf') format('truetype');
-  font-style: italic;
-  font-weight: 400;
-  font-display: swap;
-}
-
-@font-face {
   font-family: 'DM Sans';
   src: url('/fonts/dm-sans.ttf') format('truetype');
   font-weight: 100 900;
@@ -64,11 +56,8 @@ nav a:hover, nav a[aria-current='page'] { color: var(--green-deep); background: 
 .photo-form h1 { color: var(--green-deep); font-size: 59px; letter-spacing: -0.025em; }
 .form-intro { margin: 10px 0 24px; color: var(--muted); max-width: 38ch; }
 .share-intro { display: grid; align-items: center; min-width: 0; padding: clamp(22px, 3.5vw, 54px); border-radius: 18px; background: var(--green); }
-.memory-print { padding: 11px; background: var(--paper); border-radius: 4px; box-shadow: 0 8px 24px #0e1d1680; transform: rotate(-2deg); }
+.memory-print { padding: 11px 11px 24px; background: var(--paper); border-radius: 4px; box-shadow: 0 8px 24px #0e1d1680; transform: rotate(-2deg); }
 .memory-print img { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: cover; object-position: center 46%; }
-.memory-print figcaption { display: flex; align-items: center; gap: 14px; padding: 14px 10px 8px; color: var(--green-deep); font: 26px/1.06 var(--serif); }
-.memory-print figcaption em { color: var(--muted); }
-.memory-print figcaption .icon { width: 30px; height: 30px; }
 
 fieldset { margin: 0; padding: 0; border: 0; min-width: 0; display: grid; gap: 18px; }
 .form-field { min-width: 0; }
@@ -101,8 +90,7 @@ fieldset:disabled { opacity: 0.68; }
 .form-message.sending { padding: 0; color: var(--muted); }
 .form-message a { white-space: nowrap; font-weight: 700; }
 
-.site-footer { min-height: 66px; border-top: 1px solid var(--line); color: var(--muted); }
-.site-footer p { font: italic 22px var(--serif); }
+.site-footer { justify-content: flex-end; min-height: 66px; border-top: 1px solid var(--line); }
 .site-footer a { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; color: var(--green); font-size: 13px; font-weight: 650; }
 .site-footer .icon { width: 15px; height: 15px; }
 
@@ -167,8 +155,6 @@ time { font-variant-numeric: tabular-nums; }
   .photo-form { padding: 21px 17px; border-radius: 13px; }
   .photo-form h1, .frame-heading h1 { font-size: 43px; }
   .form-intro { margin: 8px 0 18px; font-size: 14px; }
-  .site-footer { flex-wrap: wrap; gap: 0 10px; padding-block: 5px; }
-  .site-footer p { font-size: 19px; }
   .frame-layout { padding-block: 21px 26px; }
   .frame-heading { align-items: flex-start; flex-direction: column; gap: 8px; }
   .photo-stage img { height: min(52vh, 420px); }
@@ -186,4 +172,37 @@ time { font-variant-numeric: tabular-nums; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+.frame-context {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding-top: 14px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.frame-context strong { margin-inline-start: 6px; color: var(--green-deep); overflow-wrap: anywhere; }
+.frame-context a, .frame-list a { font-weight: 700; }
+.access-panel {
+  margin-inline: auto;
+  max-width: 760px;
+  padding: clamp(18px, 4vw, 34px);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--white);
+}
+.access-panel h1 { font-size: 52px; }
+.access-panel h2 { font-size: 32px; margin-bottom: 7px; }
+.access-panel label { font-size: 14px; font-weight: 700; }
+.access-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.access-choices form, .invite-panel { display: grid; gap: 10px; align-content: start; }
+.access-choices form .send-button { margin-top: 3px; }
+.frame-list { display: flex; gap: 8px 20px; flex-wrap: wrap; padding: 0; margin: 16px 0 24px; list-style: none; overflow-wrap: anywhere; }
+.invite-panel { max-width: 400px; padding-top: 17px; }
+.invite-panel .text-link { justify-self: start; }
+@media (max-width: 550px) {
+  .access-panel h1 { font-size: 43px; }
+  .access-choices { grid-template-columns: 1fr; }
 }

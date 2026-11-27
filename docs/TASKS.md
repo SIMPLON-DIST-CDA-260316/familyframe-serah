@@ -51,3 +51,12 @@
 La prise de photo avec une caméra de smartphone physique reste à essayer.
 La sélection et l'envoi de fichiers dans un navigateur sont validés ; les possibilités
 natives de capture dépendent du navigateur mobile.
+
+## FamilyFrame 2.0
+
+- [x] Créer et rejoindre des cadres avec un code et un QR code.
+- [x] Vérifier côté serveur les sessions HttpOnly pour l'accès aux photos.
+- [x] Isoler les événements Socket.IO dans la room du cadre autorisé.
+- [x] Tester le rattachement des anciennes photos sur une base de test.
+- [x] Vérifier l'envoi et la lecture protégée d'une image synthétique avec Cloudinary.
+- [ ] Rattacher les photos existantes après avoir choisi leur cadre de destination.

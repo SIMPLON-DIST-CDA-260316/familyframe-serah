@@ -7,6 +7,15 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Frame {
+  id           String @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  inviteHash   String @unique
+  photos       Photo[]
+
+  @@map("frames")
+}
+
 model Photo {
   id           String   @id @default(auto()) @map("_id") @db.ObjectId
   url          String
@@ -14,6 +23,11 @@ model Photo {
   pseudo       String
   createdAt    DateTime @default(now())
 
+  frameId      String?  @db.ObjectId
+  frame        Frame?   @relation(fields: [frameId], references: [id])
+  restricted   Boolean?
+
   @@index([createdAt])
+  @@index([frameId, createdAt])
   @@map("photos")
 }
