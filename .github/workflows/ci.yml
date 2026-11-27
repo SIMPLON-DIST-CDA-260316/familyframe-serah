@@ -1,0 +1,57 @@
+name: CI FamilyFrame
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - run: npm install --global pnpm@12.15.0
+
+      - name: Tester le frontend
+        working-directory: frontend
+        run: |
+          pnpm install --frozen-lockfile
+          npm run test
+
+      - name: Tester le backend
+        working-directory: backend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm db:generate
+          npm run test
+
+  publish:
+    needs: tests
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Se connecter à GHCR
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+
+      - name: Construire et publier l’image de l’API
+        env:
+          IMAGE: ghcr.io/simplon-dist-cda-260316/familyframe-serah-api:dev
+        run: |
+          docker build -t "$IMAGE" ./backend
+          docker push "$IMAGE"

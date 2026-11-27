@@ -1,5 +1,16 @@
 # FamilyFrame — Design des deux écrans
 
+## Revue du 27 novembre 2026
+
+Le formulaire passe au premier plan. Les boutons distinguent le choix d'un fichier
+et la prise de photo. Après la sélection, le nom du fichier et l'action « Retirer »
+restent visibles. Le formulaire signale immédiatement un fichier vide ou trop gros.
+Sur mobile, le visuel décoratif laisse la place au formulaire.
+
+Le cadre distingue la connexion en cours, le direct actif et le direct interrompu.
+L'écran vide invite à partager la première photo et une erreur de chargement permet
+de réessayer. La photo principale s'affiche entière devant un fond vert sombre.
+
 ## Direction
 
 Un album de famille contemporain : fond ivoire, vert sapin, titres élégants et photos présentées comme des tirages papier. Le parcours reste celui du POC : pseudo, photo, envoi, affichage en direct.
