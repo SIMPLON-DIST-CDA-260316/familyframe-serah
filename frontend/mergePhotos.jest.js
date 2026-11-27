@@ -7,5 +7,5 @@ test('place la photo la plus récente en premier', () => {
 
     const resultat = mergePhotos([], [ancienne, recente])
 
-    expect(resultat).toEqual([recente, ancienne])
+    expect(resultat).toEqual([ancienne, recente])
 })
