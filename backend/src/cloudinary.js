@@ -12,7 +12,7 @@ export { cloudinary }
 export function uploadImage(buffer) {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
-      { folder: 'familyframe', resource_type: 'image', timeout: 20000 },
+      { folder: 'familyframe', resource_type: 'image', type: 'authenticated', timeout: 20000 },
       (error, result) => {
         if (error) reject(error)
         else resolve(result)
