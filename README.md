@@ -278,6 +278,29 @@ Une création réussie répond en HTTP 201. Un formulaire invalide répond 400,
 un fichier trop volumineux 413 et une image non acceptée 415.
 Une configuration absente répond 503 ; les autres échecs renvoient un message générique sans secrets.
 
+## Intégration continue
+
+Sur un push vers `dev`, [GitHub Actions](.github/workflows/ci.yml) lance les
+tests du frontend (Node et Jest) et du backend. Si tout passe, le workflow
+construit l'image de l'API et la publie sous
+`ghcr.io/simplon-dist-cda-260316/familyframe-serah-api:dev`.
+
+Sur une pull request vers `main`, le workflow lance les tests. La branche
+`main` exige une pull request et un résultat positif du job `tests`, y compris
+pour les administrateurs. La [PR de vérification #2](https://github.com/SIMPLON-DIST-CDA-260316/familyframe-serah/pull/2)
+montre le blocage avec un test volontairement faux.
+
+L'organisation Simplon garde le package privé. Pour récupérer l'image, il
+faut avoir accès au package et se connecter à GHCR.
+
+```bash
+docker login ghcr.io -u VOTRE_IDENTIFIANT_GITHUB
+docker pull ghcr.io/simplon-dist-cda-260316/familyframe-serah-api:dev
+```
+
+Pour la connexion manuelle, utiliser un jeton personnel classique doté de
+`read:packages`. Le workflow utilise son propre `GITHUB_TOKEN`.
+
 ## Vérifications
 
 Dans le backend :
@@ -316,3 +339,4 @@ Pour reproduire la vérification avec les vrais services après configuration de
 
 - [Spécifications](docs/SPEC.md)
 - [Tâches](docs/TASKS.md)
+- [Trame de présentation](docs/PRESENTATION.md)
